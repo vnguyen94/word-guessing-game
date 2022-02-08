@@ -1,6 +1,16 @@
 import { EmailAuthProvider, getAuth } from 'firebase/auth'
 import { initializeApp } from 'firebase/app'
-import { addDoc, collection, getFirestore } from 'firebase/firestore'
+import {
+  addDoc,
+  collection,
+  doc,
+  getDocs,
+  getFirestore,
+  runTransaction,
+  setDoc,
+  where,
+  query,
+} from 'firebase/firestore'
 import React from 'react'
 import ReactDOM from 'react-dom'
 import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth'
@@ -60,11 +70,22 @@ function Container() {
       const userId = currentUser!.uid
       const gameStats = loadStats()
       try {
-        const docRef = await addDoc(collection(db, 'users'), {
-          userId,
-          gameStats,
+        await runTransaction(db, async (transaction) => {
+          const usersRef = collection(db, 'users')
+          const q = query(usersRef, where('userId', '==', userId))
+          const querySnapshot = await getDocs(q)
+          if (querySnapshot.empty) {
+            const docRef = await addDoc(usersRef, {
+              userId,
+              gameStats,
+            })
+            console.log('Document written with ID: ', docRef.id)
+          } else {
+            const user = querySnapshot.docs[0]
+            await setDoc(doc(db, 'users', user.id), { userId, gameStats })
+            console.log('Document updated with ID: ', user.id)
+          }
         })
-        console.log('Document written with ID: ', docRef.id)
       } catch (e) {
         console.error('Error adding document: ', e)
       }
