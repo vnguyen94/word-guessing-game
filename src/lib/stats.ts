@@ -44,7 +44,7 @@ const defaultStats: GameStats = {
   successRate: 0,
 }
 
-export const loadStats = () => {
+export const loadStats = (): GameStats => {
   return loadStatsFromLocalStorage() || defaultStats
 }
 
