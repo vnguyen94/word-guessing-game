@@ -11,5 +11,5 @@ FROM nginx AS prod
 COPY --from=prod_builder /app/build /usr/share/nginx/html
 
 FROM node_modules AS dev
-EXPOSE 3000
+EXPOSE 5000
 CMD npm run start

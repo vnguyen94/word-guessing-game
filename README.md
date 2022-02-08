@@ -20,10 +20,10 @@ $> npm run start
 
 ```bash
 $> docker build -t game .
-$> docker run -d -p 3000:3000 game
+$> docker run -d -p 5000:5000 game
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in browser.
+Open [http://localhost:5000](http://localhost:5000) in browser.
 
 ## Projects built using this repo
 
