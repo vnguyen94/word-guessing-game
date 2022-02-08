@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "vandle-df38a",
+    "staging": "vandle-df38a"
+  },
+  "targets": {}
+}
