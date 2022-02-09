@@ -106,6 +106,7 @@ function App({
     if (guesses.length) {
       persistScores({ solution, guesses, date: getCurrentDate() })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guesses])
 
   useEffect(() => {
