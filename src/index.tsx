@@ -1,16 +1,5 @@
 import { EmailAuthProvider, getAuth } from 'firebase/auth'
 import { initializeApp } from 'firebase/app'
-import {
-  addDoc,
-  collection,
-  doc,
-  getDocs,
-  getFirestore,
-  runTransaction,
-  setDoc,
-  where,
-  query,
-} from 'firebase/firestore'
 import React from 'react'
 import ReactDOM from 'react-dom'
 import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth'
@@ -18,11 +7,18 @@ import './index.css'
 import App from './App'
 import reportWebVitals from './reportWebVitals'
 
-import { loadStats } from './lib/stats'
+import {
+  fetchScore,
+  GameStats,
+  getCurrentDate,
+  loadStats,
+  persistScores,
+  persistStats,
+  Score,
+} from './lib/stats'
 
 const { useEffect, useState } = React
 
-console.log(process.env)
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -47,6 +43,8 @@ const uiConfig = {
 
 function Container() {
   const [isSignedIn, setIsSignedIn] = useState(false) // Local signed-in state.
+  const [gameStats, setStats] = useState<GameStats | undefined>()
+  const [currentDayScore, setCurrentDayScore] = useState<Score | undefined>()
 
   const auth = getAuth()
   const { currentUser } = auth
@@ -65,34 +63,29 @@ function Container() {
       return
     }
 
-    async function saveUser() {
-      const db = getFirestore()
-      const userId = currentUser!.uid
-      const gameStats = loadStats()
-      try {
-        await runTransaction(db, async (transaction) => {
-          const usersRef = collection(db, 'users')
-          const q = query(usersRef, where('userId', '==', userId))
-          const querySnapshot = await getDocs(q)
-          if (querySnapshot.empty) {
-            const docRef = await addDoc(usersRef, {
-              userId,
-              gameStats,
-            })
-            console.log('Document written with ID: ', docRef.id)
-          } else {
-            const user = querySnapshot.docs[0]
-            await setDoc(doc(db, 'users', user.id), { userId, gameStats })
-            console.log('Document updated with ID: ', user.id)
-          }
-        })
-      } catch (e) {
-        console.error('Error adding document: ', e)
-      }
+    async function executeFetchStats() {
+      const gameStats = await loadStats()
+      setStats(gameStats)
+      // persistStats(gameStats);
     }
 
-    saveUser()
+    async function executeFetchCurrentDayScore() {
+      const currentDate = getCurrentDate()
+      const currentDayScore = await fetchScore({
+        userId: currentUser!.uid,
+        date: currentDate,
+      })
+      setCurrentDayScore(currentDayScore?.score ?? undefined)
+    }
+
+    executeFetchStats()
+    executeFetchCurrentDayScore()
   }, [currentUser])
+
+  const setGameStats = async (newGameStats: GameStats) => {
+    setStats(newGameStats)
+    return persistStats(newGameStats)
+  }
 
   let content: React.ReactNode
 
@@ -107,7 +100,21 @@ function Container() {
   } else {
     content = (
       <div>
-        <App />
+        {gameStats ? (
+          <App
+            gameStats={gameStats}
+            setGameStats={setGameStats}
+            currentDayScore={currentDayScore}
+            persistScores={(newScore) => {
+              return persistScores({
+                ...newScore,
+                userId: currentUser!.uid,
+              })
+            }}
+          />
+        ) : (
+          <div>loading stats...</div>
+        )}
         <p>Welcome {currentUser?.displayName}! You are now signed-in!</p>
         <button onClick={() => auth.signOut()}>Sign-out</button>
       </div>

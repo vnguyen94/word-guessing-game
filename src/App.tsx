@@ -27,15 +27,28 @@ import {
   REVEAL_TIME_MS,
 } from './constants/settings'
 import { isWordInWordList, isWinningWord, solution } from './lib/words'
-import { addStatsForCompletedGame, loadStats } from './lib/stats'
 import {
-  loadGameStateFromLocalStorage,
-  saveGameStateToLocalStorage,
-} from './lib/localStorage'
+  addStatsForCompletedGame,
+  GameStats,
+  getCurrentDate,
+  Score,
+} from './lib/stats'
 
 import './App.css'
 
-function App() {
+type IProps = {
+  gameStats: GameStats
+  setGameStats: (newGameStats: GameStats) => Promise<void>
+  currentDayScore: Score | undefined
+  persistScores: (newScore: Omit<Score, 'userId'>) => Promise<void>
+}
+
+function App({
+  gameStats,
+  setGameStats,
+  persistScores,
+  currentDayScore,
+}: IProps) {
   const prefersDarkMode = window.matchMedia(
     '(prefers-color-scheme: dark)'
   ).matches
@@ -57,22 +70,24 @@ function App() {
   )
   const [successAlert, setSuccessAlert] = useState('')
   const [isRevealing, setIsRevealing] = useState(false)
-  const [guesses, setGuesses] = useState<string[]>(() => {
-    const loaded = loadGameStateFromLocalStorage()
-    if (loaded?.solution !== solution) {
-      return []
-    }
-    const gameWasWon = loaded.guesses.includes(solution)
-    if (gameWasWon) {
-      setIsGameWon(true)
-    }
-    if (loaded.guesses.length === MAX_CHALLENGES && !gameWasWon) {
-      setIsGameLost(true)
-    }
-    return loaded.guesses
-  })
+  const [guesses, setGuesses] = useState<string[]>([])
 
-  const [stats, setStats] = useState(() => loadStats())
+  useEffect(() => {
+    if (currentDayScore) {
+      console.log(currentDayScore)
+      if (currentDayScore?.solution !== solution) {
+        setGuesses([])
+      }
+      const gameWasWon = currentDayScore.guesses.includes(solution)
+      if (gameWasWon) {
+        setIsGameWon(true)
+      }
+      if (currentDayScore.guesses.length === MAX_CHALLENGES && !gameWasWon) {
+        setIsGameLost(true)
+      }
+      setGuesses(currentDayScore.guesses)
+    }
+  }, [currentDayScore])
 
   useEffect(() => {
     if (isDarkMode) {
@@ -88,7 +103,9 @@ function App() {
   }
 
   useEffect(() => {
-    saveGameStateToLocalStorage({ guesses, solution })
+    if (guesses.length) {
+      persistScores({ solution, guesses, date: getCurrentDate() })
+    }
   }, [guesses])
 
   useEffect(() => {
@@ -161,12 +178,19 @@ function App() {
       setCurrentGuess('')
 
       if (winningWord) {
-        setStats(addStatsForCompletedGame(stats, guesses.length))
+        const newGameStats = addStatsForCompletedGame(gameStats, guesses.length)
+        setGameStats(newGameStats)
         return setIsGameWon(true)
       }
 
       if (guesses.length === MAX_CHALLENGES - 1) {
-        setStats(addStatsForCompletedGame(stats, guesses.length + 1))
+        const newGameStats = addStatsForCompletedGame(
+          gameStats,
+          guesses.length + 1
+        )
+
+        persistScores({ solution, guesses, date: getCurrentDate() })
+        setGameStats(newGameStats)
         setIsGameLost(true)
       }
     }
@@ -218,7 +242,7 @@ function App() {
         isOpen={isStatsModalOpen}
         handleClose={() => setIsStatsModalOpen(false)}
         guesses={guesses}
-        gameStats={stats}
+        gameStats={gameStats}
         isGameLost={isGameLost}
         isGameWon={isGameWon}
         handleShare={() => {
